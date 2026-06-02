@@ -1,4 +1,3 @@
-cat > etl/fetch.py << 'EOF'
 import requests
 import pandas as pd
 
@@ -9,7 +8,7 @@ class RentFetcher:
     API_URL = "https://data.ntpc.gov.tw/api/datasets/18d62577-1d5f-4967-ab9c-d71faba8cde1/json"
 
     def __init__(self, token: str = None):
-        self.token = token  # 此 API 不需要 token
+        self.token = token
 
     def fetch(self) -> pd.DataFrame:
         all_records = []
@@ -17,10 +16,7 @@ class RentFetcher:
         limit = 1000
 
         while True:
-            params = {
-                "offset": offset,
-                "limit": limit,
-            }
+            params = {"offset": offset, "limit": limit}
             print(f"Fetching offset={offset}...")
             resp = requests.get(self.API_URL, params=params, timeout=60)
             resp.raise_for_status()
@@ -43,4 +39,3 @@ class RentFetcher:
         df = pd.DataFrame(all_records)
         print(f"Fetched {len(df)} records total.")
         return df
-EOF
