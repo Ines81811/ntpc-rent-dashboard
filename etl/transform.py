@@ -1,4 +1,3 @@
-cat > etl/transform.py << 'EOF'
 import pandas as pd
 import numpy as np
 
@@ -19,7 +18,6 @@ class RentTransformer:
         return {"raw": df, "summary": summary, "trend": trend}
 
     def _clean(self, df: pd.DataFrame) -> pd.DataFrame:
-        # 欄位對應
         rename_map = {
             "district": "district",
             "rps22_amountsunitdollars": "total_price",
@@ -32,17 +30,14 @@ class RentTransformer:
         }
         df = df.rename(columns={k: v for k, v in rename_map.items() if k in df.columns})
 
-        # 清理租金
         df["total_price"] = pd.to_numeric(df["total_price"], errors="coerce")
         df = df[df["total_price"].between(1000, 300000)]
 
-        # 清理面積
         if "area" in df.columns:
             df["area"] = pd.to_numeric(df["area"], errors="coerce")
             df = df[df["area"] > 0]
             df["unit_price"] = (df["total_price"] / df["area"]).round(0)
 
-        # 清理日期（民國年轉西元）
         if "transaction_date" in df.columns:
             df["transaction_date"] = df["transaction_date"].astype(str).str[:7]
             df["transaction_date"] = df["transaction_date"].apply(self._roc_to_ce)
@@ -88,4 +83,3 @@ class RentTransformer:
             .rename(columns={"transaction_date": "year_month"})
         )
         return trend
-EOF
