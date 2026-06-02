@@ -133,36 +133,3 @@ if "avg_unit_price" in summary_df.columns and summary_df["avg_unit_price"].notna
     fig_unit.update_layout(coloraxis_showscale=False)
     st.plotly_chart(fig_unit, use_container_width=True)
 
-# ── 月趨勢折線圖 ──────────────────────────────────────────
-if not trend_df.empty:
-    st.subheader("租金月趨勢")
-
-    all_districts = sorted(trend_df["district"].unique())
-    selected = st.multiselect(
-        "選擇行政區",
-        options=all_districts,
-        default=all_districts[:5] if len(all_districts) >= 5 else all_districts,
-    )
-
-    if selected:
-        filtered = trend_df[trend_df["district"].isin(selected)]
-        fig_line = px.line(
-            filtered,
-            x="year_month",
-            y="avg_price",
-            color="district",
-            markers=True,
-            labels={
-                "year_month": "年月",
-                "avg_price": "平均月租金 (NT$)",
-                "district": "行政區",
-            },
-        )
-        fig_line.update_layout(xaxis_tickangle=-45)
-        st.plotly_chart(fig_line, use_container_width=True)
-
-# ── 原始數據表 ────────────────────────────────────────────
-with st.expander("查看彙總資料表"):
-    st.dataframe(summary_df, use_container_width=True)
-
-st.caption(f"最後更新：{summary_df['updated_at'].max() if 'updated_at' in summary_df.columns else '—'}")
