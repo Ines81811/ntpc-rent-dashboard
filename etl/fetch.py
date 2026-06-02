@@ -1,43 +1,46 @@
+cat > etl/fetch.py << 'EOF'
 import requests
 import pandas as pd
-import os
-from datetime import datetime, timedelta
 
 
 class RentFetcher:
-    """從 FinMind API 抓租賃資料"""
+    """從新北市資料開放平臺抓租賃實價登錄資料"""
 
-    BASE_URL = "https://api.finmindtrade.com/api/v4/data"
-    DATASET = "TaiwanRealEstateTenancy"
+    API_URL = "https://data.ntpc.gov.tw/api/datasets/18d62577-1d5f-4967-ab9c-d71faba8cde1/json"
 
-    def __init__(self, token: str):
-        self.token = token
+    def __init__(self, token: str = None):
+        self.token = token  # 此 API 不需要 token
 
-    def fetch(self, start_date: str = None, end_date: str = None) -> pd.DataFrame:
-        if start_date is None:
-            start_date = (datetime.today() - timedelta(days=365)).strftime("%Y-%m-%d")
-        if end_date is None:
-            end_date = datetime.today().strftime("%Y-%m-%d")
+    def fetch(self) -> pd.DataFrame:
+        all_records = []
+        offset = 0
+        limit = 1000
 
-        params = {
-            "dataset": self.DATASET,
-            "start_date": start_date,
-            "end_date": end_date,
-            "token": self.token,
-        }
+        while True:
+            params = {
+                "offset": offset,
+                "limit": limit,
+            }
+            print(f"Fetching offset={offset}...")
+            resp = requests.get(self.API_URL, params=params, timeout=60)
+            resp.raise_for_status()
+            records = resp.json()
 
-        resp = requests.get(self.BASE_URL, params=params, timeout=60)
-        resp.raise_for_status()
-        data = resp.json()
+            if not records:
+                break
 
-        if data.get("status") != 200:
-            raise ValueError(f"API error: {data.get('msg')}")
+            all_records.extend(records)
 
-        records = data.get("data", [])
-        if not records:
-            print("No data returned from API.")
+            if len(records) < limit:
+                break
+
+            offset += limit
+
+        if not all_records:
+            print("No data returned.")
             return pd.DataFrame()
 
-        df = pd.DataFrame(records)
-        print(f"Fetched {len(df)} records from FinMind.")
+        df = pd.DataFrame(all_records)
+        print(f"Fetched {len(df)} records total.")
         return df
+EOF
