@@ -1,6 +1,12 @@
 import pandas as pd
 import numpy as np
-
+def _clean_values(self, df: pd.DataFrame) -> pd.DataFrame:
+    # 篩選新北市
+    if "county" in df.columns:
+        df = df[df["county"].str.contains("新北", na=False)]
+    elif "district" in df.columns:
+        df = df[df["district"].str.contains("新北|板橋|新店|中和|永和|土城|三重|蘆洲|新莊|淡水", na=False)]
+    
 
 class RentTransformer:
     """清理並轉換租賃資料"""
