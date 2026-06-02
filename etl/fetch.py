@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 
 
 class RentFetcher:
-    """從 FinMind API 抓新北市租賃實價登錄資料"""
+    """從 FinMind API 抓租賃資料"""
 
     BASE_URL = "https://api.finmindtrade.com/api/v4/data"
     DATASET = "TaiwanRealEstateTenancy"
@@ -21,7 +21,6 @@ class RentFetcher:
 
         params = {
             "dataset": self.DATASET,
-            "data_id": "新北市",
             "start_date": start_date,
             "end_date": end_date,
             "token": self.token,
