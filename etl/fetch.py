@@ -1,5 +1,8 @@
 import requests
 import pandas as pd
+import urllib3
+
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
 class RentFetcher:
@@ -18,7 +21,7 @@ class RentFetcher:
         while True:
             params = {"offset": offset, "limit": limit}
             print(f"Fetching offset={offset}...")
-            resp = requests.get(self.API_URL, params=params, timeout=60)
+            resp = requests.get(self.API_URL, params=params, timeout=60, verify=False)
             resp.raise_for_status()
             records = resp.json()
 
