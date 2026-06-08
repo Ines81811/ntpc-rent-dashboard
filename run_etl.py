@@ -67,28 +67,17 @@ if existing_count == 0:
         print(f"CSV downloaded: {len(df_csv)} rows")
         print(f"CSV columns: {list(df_csv.columns[:8])}")
 
-        col_map = {}
-        for c in df_csv.columns:
-            cl = c.strip()
-            if "鄉鎮" in cl or "district" in cl.lower():
-                col_map[c] = "district"
-            elif "總額" in cl or "rps22" in cl.lower():
-                col_map[c] = "total_price"
-            elif "建物移轉" in cl and "面積" in cl:
-                col_map[c] = "area"
-            elif "租賃年月" in cl or "rps07" in cl.lower():
-                col_map[c] = "transaction_date"
-            elif "單價" in cl or "rps23" in cl.lower():
-                col_map[c] = "unit_price"
-            elif "建物型態" in cl or "rps11" in cl.lower():
-                col_map[c] = "build_type"
-            elif "移轉層次" in cl or "rps09" in cl.lower():
-                col_map[c] = "floor"
-            elif "建築完成" in cl or "rps14" in cl.lower():
-                col_map[c] = "build_year"
-            elif "序號" in cl or "rps28" in cl.lower():
-                col_map[c] = "serial_number"
-
+        col_map = {
+            "district": "district",
+            "rps07_yyymmddroc": "transaction_date",
+            "rps22_amountsunitdollars": "total_price",
+            "rps15_area": "area",
+            "rps23_amountsunitdollars": "unit_price",
+            "rps11": "build_type",
+            "rps09": "floor",
+            "rps14_yyymmddroc": "build_year",
+            "rps28": "serial_number",
+        }
         df_csv = df_csv.rename(columns=col_map)
         print(f"Mapped columns: {list(df_csv.columns[:8])}")
 
@@ -96,6 +85,8 @@ if existing_count == 0:
             print("Cannot find total_price column, skipping CSV import.")
         else:
             df_csv["total_price"] = pd.to_numeric(df_csv["total_price"], errors="coerce")
+            df_csv["area"] = pd.to_numeric(df_csv["area"], errors="coerce") if "area" in df_csv.columns else None
+            df_csv["unit_price"] = pd.to_numeric(df_csv["unit_price"], errors="coerce") if "unit_price" in df_csv.columns else None
             df_csv = df_csv[df_csv["total_price"].between(1000, 300000)]
             df_csv = df_csv.dropna(subset=["district", "total_price"]).reset_index(drop=True)
 
@@ -108,14 +99,17 @@ if existing_count == 0:
 
             batch_size = 500
             for i in range(0, len(csv_records), batch_size):
-                client.table("rent_raw").insert(csv_records[i:i+batch_size]).execute()
-                print(f"  Inserted batch {i//batch_size + 1} ({min(i+batch_size, len(csv_records))}/{len(csv_records)})")
-            print(f"Inserted {len(csv_records)} rows from CSV.")
+                client.table("rent_raw").upsert(
+                    csv_records[i:i+batch_size],
+                    on_conflict="serial_number"
+                ).execute()
+                print(f"  Upserted batch {i//batch_size + 1} ({min(i+batch_size, len(csv_records))}/{len(csv_records)})")
+            print(f"Upserted {len(csv_records)} rows from CSV.")
 
     except Exception as e:
         print(f"CSV download/import failed: {e}")
 
-# 增量更新
+# 增量更新：抓最新 30 筆
 print("Fetching latest 30 records from API...")
 try:
     resp = requests.get(API_URL, params={"offset": 0, "limit": 30}, verify=False, timeout=30)
@@ -164,7 +158,12 @@ df["unit_price"] = pd.to_numeric(df["unit_price"], errors="coerce")
 df = df[df["total_price"].between(1000, 300000)].dropna(subset=["district", "total_price"])
 
 grp = df.groupby("district")
-summary = grp["total_price"].agg(avg_price="mean", median_price="median", case_count="count").round(0).reset_index()
+summary = grp["total_price"].agg(
+    avg_price="mean",
+    median_price="median",
+    case_count="count",
+).round(0).reset_index()
+
 unit = grp["unit_price"].mean().round(0).reset_index()
 unit.columns = ["district", "avg_unit_price"]
 summary = summary.merge(unit, on="district", how="left")
