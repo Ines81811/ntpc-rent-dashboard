@@ -65,6 +65,9 @@ if existing_count == 0:
             low_memory=False
         )
         print(f"CSV downloaded: {len(df_csv)} rows")
+
+        # 清理欄位名稱空白字元
+        df_csv.columns = [c.strip() for c in df_csv.columns]
         print(f"CSV columns: {list(df_csv.columns)}")
 
         col_map = {
@@ -79,7 +82,7 @@ if existing_count == 0:
             "rps28": "serial_number",
         }
         df_csv = df_csv.rename(columns=col_map)
-        print(f"Mapped columns: {list(df_csv.columns[:8])}")
+        print(f"Mapped columns: {list(df_csv.columns)}")
 
         if "total_price" not in df_csv.columns:
             print("Cannot find total_price column, skipping CSV import.")
@@ -89,6 +92,8 @@ if existing_count == 0:
             df_csv["unit_price"] = pd.to_numeric(df_csv["unit_price"], errors="coerce") if "unit_price" in df_csv.columns else None
             df_csv = df_csv[df_csv["total_price"].between(1000, 300000)]
             df_csv = df_csv.dropna(subset=["district", "total_price"]).reset_index(drop=True)
+            print(f"After cleaning: {len(df_csv)} rows, {df_csv['district'].nunique()} districts")
+            print(f"Districts: {sorted(df_csv['district'].unique())}")
 
             keep = [c for c in ["serial_number", "district", "total_price", "area",
                                  "unit_price", "transaction_date", "build_type",
