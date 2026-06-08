@@ -25,7 +25,7 @@ def get_supabase() -> Client:
 
 
 # ── Data Loaders ──────────────────────────────────────────
-@st.cache_data(ttl=3600)
+@st.cache_data(ttl=60)
 def load_summary() -> pd.DataFrame:
     client = get_supabase()
     resp = client.table("rent_summary").select("*").execute()
@@ -33,7 +33,7 @@ def load_summary() -> pd.DataFrame:
     return df.sort_values("avg_price", ascending=False).reset_index(drop=True)
 
 
-@st.cache_data(ttl=3600)
+@st.cache_data(ttl=60)
 def load_trend() -> pd.DataFrame:
     client = get_supabase()
     resp = client.table("rent_monthly_trend").select("*").execute()
