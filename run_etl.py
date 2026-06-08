@@ -54,8 +54,46 @@ if existing_count == 0:
             low_memory=False
         )
         print(f"CSV downloaded: {len(df_csv)} rows")
-        # CSV 欄位名跟 JSON 不同，直接用 JSON API 的欄位名對應
-        # 先用 API 抓 30 筆確認欄位結構
+        print(f"CSV downloaded: {len(df_csv)} rows")
+        # CSV 欄位對應
+        df_csv = df_csv.rename(columns={
+            "鄉鎮市區": "district",
+            "租賃總額元": "total_price",
+            "建物移轉總面積平方公尺": "area",
+            "租賃年月日": "transaction_date",
+            "單價元平方公尺": "unit_price",
+            "建物型態": "build_type",
+            "移轉層次": "floor",
+            "建築完成年月": "build_year",
+            "序號": "serial_number",
+        })
+        df_csv["total_price"] = pd.to_numeric(df_csv["total_price"], errors="coerce")
+        df_csv["area"] = pd.to_numeric(df_csv.get("area", pd.Series()), errors="coerce")
+        df_csv["unit_price"] = pd.to_numeric(df_csv.get("unit_price", pd.Series()), errors="coerce")
+        df_csv = df_csv[df_csv["total_price"].between(1000, 300000)]
+        df_csv = df_csv.dropna(subset=["district", "total_price"]).reset_index(drop=True)
+        
+        keep = ["serial_number", "district", "total_price", "area", "unit_price", "transaction_date", "build_type", "floor", "build_year"]
+        keep = [c for c in keep if c in df_csv.columns]
+        df_csv = df_csv[keep]
+        
+        csv_records = []
+        for _, row in df_csv.iterrows():
+            r = {}
+            for k in keep:
+                v = row.get(k)
+                if pd.isna(v) if isinstance(v, float) else False:
+                    r[k] = None
+                else:
+                    r[k] = v
+            csv_records.append(r)
+        
+        # 分批寫入
+        batch_size = 500
+        for i in range(0, len(csv_records), batch_size):
+            client.table("rent_raw").insert(csv_records[i:i+batch_size]).execute()
+        print(f"Inserted {len(csv_records)} rows from CSV to rent_raw.")
+    except Exception as e:
     except Exception as e:
         print(f"CSV download failed: {e}")
 
