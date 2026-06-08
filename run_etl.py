@@ -122,8 +122,20 @@ except Exception as e:
 
 if new_records:
     try:
-        serials_resp = client.table("rent_raw").select("serial_number").execute()
-        existing_serials = {r["serial_number"] for r in serials_resp.data if r.get("serial_number")}
+        existing_serials = set()
+        page = 0
+        while True:
+            serials_resp = client.table("rent_raw").select("serial_number").range(
+                page * 1000, (page + 1) * 1000 - 1
+            ).execute()
+            if not serials_resp.data:
+                break
+            existing_serials.update(
+                r["serial_number"] for r in serials_resp.data if r.get("serial_number")
+            )
+            if len(serials_resp.data) < 1000:
+                break
+            page += 1
         print(f"Existing serial numbers: {len(existing_serials)}")
     except Exception as e:
         print(f"Failed to fetch serials: {e}")
@@ -139,7 +151,7 @@ if new_records:
 
     print(f"New records to insert: {len(to_insert)}")
     if to_insert:
-        client.table("rent_raw").insert(to_insert).execute()
+        client.table("rent_raw").upsert(to_insert, on_conflict="serial_number").execute()
         print(f"Inserted {len(to_insert)} new rows.")
     else:
         print("No new records.")
