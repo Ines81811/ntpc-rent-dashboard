@@ -50,6 +50,25 @@ def parse_api_row(row):
         return None
 
 
+def fetch_all_from_supabase(table, columns):
+    """分頁讀取 Supabase 全量資料"""
+    all_rows = []
+    page = 0
+    page_size = 1000
+    while True:
+        resp = client.table(table).select(columns).range(
+            page * page_size, (page + 1) * page_size - 1
+        ).execute()
+        if not resp.data:
+            break
+        all_rows.extend(resp.data)
+        print(f"  Fetched page {page + 1}: {len(all_rows)} rows so far")
+        if len(resp.data) < page_size:
+            break
+        page += 1
+    return all_rows
+
+
 # 檢查母體是否存在
 existing = client.table("rent_raw").select("id", count="exact").execute()
 existing_count = existing.count or 0
@@ -66,9 +85,7 @@ if existing_count == 0:
         )
         print(f"CSV downloaded: {len(df_csv)} rows")
 
-        # 清理欄位名稱空白字元
-        df_csv.columns = [c.strip() for c in df_csv.columns]
-        print(f"CSV columns: {list(df_csv.columns)}")
+        df_csv.columns = [c.strip().strip('"') for c in df_csv.columns]
 
         col_map = {
             "district": "district",
@@ -82,7 +99,6 @@ if existing_count == 0:
             "rps28": "serial_number",
         }
         df_csv = df_csv.rename(columns=col_map)
-        print(f"Mapped columns: {list(df_csv.columns)}")
 
         if "total_price" not in df_csv.columns:
             print("Cannot find total_price column, skipping CSV import.")
@@ -93,7 +109,6 @@ if existing_count == 0:
             df_csv = df_csv[df_csv["total_price"].between(1000, 300000)]
             df_csv = df_csv.dropna(subset=["district", "total_price"]).reset_index(drop=True)
             print(f"After cleaning: {len(df_csv)} rows, {df_csv['district'].nunique()} districts")
-            print(f"Districts: {sorted(df_csv['district'].unique())}")
 
             keep = [c for c in ["serial_number", "district", "total_price", "area",
                                  "unit_price", "transaction_date", "build_type",
@@ -161,10 +176,11 @@ if new_records:
     else:
         print("No new records.")
 
-# 重新計算彙總
+# 重新計算彙總（全量分頁讀取）
 print("Recalculating summary from rent_raw...")
-all_data = client.table("rent_raw").select("district,total_price,unit_price").execute()
-df = pd.DataFrame(all_data.data)
+all_rows = fetch_all_from_supabase("rent_raw", "district,total_price,unit_price")
+print(f"Total rows fetched for summary: {len(all_rows)}")
+df = pd.DataFrame(all_rows)
 
 if df.empty:
     print("rent_raw is empty.")
@@ -173,6 +189,7 @@ if df.empty:
 df["total_price"] = pd.to_numeric(df["total_price"], errors="coerce")
 df["unit_price"] = pd.to_numeric(df["unit_price"], errors="coerce")
 df = df[df["total_price"].between(1000, 300000)].dropna(subset=["district", "total_price"])
+print(f"Districts in data: {sorted(df['district'].unique())}")
 
 grp = df.groupby("district")
 summary = grp["total_price"].agg(
