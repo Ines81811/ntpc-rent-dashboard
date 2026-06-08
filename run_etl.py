@@ -65,7 +65,7 @@ if existing_count == 0:
             low_memory=False
         )
         print(f"CSV downloaded: {len(df_csv)} rows")
-        print(f"CSV columns: {list(df_csv.columns[:8])}")
+        print(f"CSV columns: {list(df_csv.columns)}")
 
         col_map = {
             "district": "district",
